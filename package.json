@@ -1,0 +1,25 @@
+{
+  "name": "specifytaxontreeupdater",
+  "version": "1.0.0",
+  "description": "Scripts for importing/updating the taxonomy in Specify",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://ian_engelbrecht@bitbucket.org/ian_engelbrecht/specifytaxontreeupdater.git"
+  },
+  "author": "I. Engelbrecht",
+  "license": "MIT",
+  "homepage": "https://bitbucket.org/ian_engelbrecht/specifytaxontreeupdater#readme",
+  "dependencies": {
+    "csv-parse": "^2.4.0",
+    "iconv": "^2.3.0",
+    "mysql2": "^1.5.3",
+    "replacestream": "^4.0.3",
+    "sequelize": "^4.37.7",
+    "stream": "0.0.2",
+    "stream-transform": "^1.0.2"
+  }
+}

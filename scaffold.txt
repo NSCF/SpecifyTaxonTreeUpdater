@@ -1,0 +1,6 @@
+This just the command line for creating the sequelize models
+See https://github.com/sequelize/sequelize-auto
+
+sequelize-auto -h localhost -d sandbox -u root -x root -p 3306  --dialect mysql -o "./models" -t taxon,taxontreedef,commonnametx,taxoncitation,agent -C
+
+I've then changed some of the unspecified field names to the fields we need for the taxon tree, see Models >> taxon.js
