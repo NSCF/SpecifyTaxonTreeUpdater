@@ -1,7 +1,7 @@
 /* jshint indent: 2 */
 
-module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('taxoncitation', {
+module.exports = function(sequelizeInstance, DataTypes) {
+  return sequelizeInstance.define('taxoncitation', {
     taxonCitationId: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
@@ -96,9 +96,6 @@ module.exports = function(sequelize, DataTypes) {
       field: 'ReferenceWorkID'
     }
   }, {
-    tableName: 'taxoncitation',
-    timestamps: true,
-    createdAt: 'timestampCreated',
-    updatedAt: 'timestampModified'
+    tableName: 'taxoncitation'
   });
 };

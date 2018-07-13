@@ -1,7 +1,7 @@
 /* jshint indent: 2 */
 
-module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('taxon', {
+module.exports = function(sequelizeInstance, DataTypes) {
+  return sequelizeInstance.define('taxon', {
     taxonId: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
@@ -239,7 +239,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true,
       field: 'YesNo1'
     },
-    yesNo2: {
+    exotic: {
       type: DataTypes.BOOLEAN,
       allowNull: true,
       field: 'YesNo2'
@@ -511,9 +511,6 @@ module.exports = function(sequelize, DataTypes) {
       field: 'YesNo9'
     }
   }, {
-    tableName: 'taxon',
-    timestamps: true,
-    createdAt: 'timestampCreated',
-    updatedAt: 'timestampModified'
+    tableName: 'taxon'
   });
 };

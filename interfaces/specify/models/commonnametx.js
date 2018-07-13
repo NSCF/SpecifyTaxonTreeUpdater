@@ -1,7 +1,7 @@
 /* jshint indent: 2 */
 
-module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('commonnametx', {
+module.exports = function(sequelizeInstance, DataTypes) {
+  return sequelizeInstance.define('commonnametx', {
     commonNameTxId: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
@@ -77,9 +77,6 @@ module.exports = function(sequelize, DataTypes) {
       field: 'TaxonID'
     }
   }, {
-    tableName: 'commonnametx',
-    timestamps: true,
-    createdAt: 'timestampCreated',
-    updatedAt: 'timestampModified'
+    tableName: 'commonnametx'
   });
 };

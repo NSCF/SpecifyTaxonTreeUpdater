@@ -1,7 +1,7 @@
 /* jshint indent: 2 */
 
-module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('agent', {
+module.exports = function(sequelizeInstance, DataTypes) {
+  return sequelizeInstance.define('agent', {
     agentId: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
@@ -201,9 +201,6 @@ module.exports = function(sequelize, DataTypes) {
       field: 'ModifiedByAgentID'
     }
   }, {
-    tableName: 'agent',
-    timestamps: true,
-    createdAt: 'timestampCreated',
-    updatedAt: 'timestampModified'
+    tableName: 'agent'
   });
 };

@@ -8,7 +8,13 @@
       "type": "node",
       "request": "launch",
       "name": "Launch reptiledatabaseinterface",
-      "program": "${workspaceFolder}\\interfaces\\reptiledatabase.js"
+      "program": "${workspaceFolder}\\interfaces\\reptileDatabase\\reptiledatabase.js"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch sqlCleaning",
+      "program": "${workspaceFolder}\\\\scripts\\sqlCleaning.js"
     }
   ]
 }

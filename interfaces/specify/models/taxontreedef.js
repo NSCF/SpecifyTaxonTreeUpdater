@@ -1,7 +1,7 @@
 /* jshint indent: 2 */
 
-module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('taxontreedef', {
+module.exports = function(sequelizeInstance, DataTypes) {
+  return sequelizeInstance.define('taxontreedef', {
     taxonTreeDefId: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
@@ -58,9 +58,6 @@ module.exports = function(sequelize, DataTypes) {
       field: 'ModifiedByAgentID'
     }
   }, {
-    tableName: 'taxontreedef',
-    timestamps: true,
-    createdAt: 'timestampCreated',
-    updatedAt: 'timestampModified'
+    tableName: 'taxontreedef'
   });
 };
