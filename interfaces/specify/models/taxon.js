@@ -87,7 +87,8 @@ module.exports = function(sequelizeInstance, DataTypes) {
     isHybrid: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
-      field: 'IsHybrid'
+      field: 'IsHybrid', 
+      defaultValue: false
     },
     isisNumber: {
       type: DataTypes.STRING(16),
@@ -355,12 +356,12 @@ module.exports = function(sequelizeInstance, DataTypes) {
       allowNull: true,
       field: 'Integer5'
     },
-    text10: {
+    taxonomicStatus: {
       type: DataTypes.STRING(128),
       allowNull: true,
       field: 'Text10'
     },
-    text11: {
+    tempAcceptedTaxonName: {
       type: DataTypes.STRING(128),
       allowNull: true,
       field: 'Text11'

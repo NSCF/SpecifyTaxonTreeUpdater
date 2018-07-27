@@ -15,6 +15,24 @@
       "request": "launch",
       "name": "Launch sqlCleaning",
       "program": "${workspaceFolder}\\\\scripts\\sqlCleaning.js"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch scratchpad",
+      "program": "${workspaceFolder}\\scratchpad.js"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch findNode test",
+      "program": "${workspaceFolder}\\interfaces\\test\\findTaxonInTreeTest.js"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch createSpecifyTaxa",
+      "program": "${workspaceFolder}\\scripts\\taxaMigration.js"
     }
   ]
 }

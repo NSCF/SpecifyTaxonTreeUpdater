@@ -28,13 +28,15 @@ module.exports = function(database, host, user, pwd){
         min: 0,
         acquire: 30000,
         idle: 10000
-      },
+    },
 
     define: {
         timestamps: true,
         createdAt: 'timestampCreated',
         updatedAt: 'timestampModified'
-        }
+    },
+     
+    timezone: 'Africa/Johannesburg'
 
     });
 

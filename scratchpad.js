@@ -1,15 +1,28 @@
-var arr = [
-      {a: 1, b: 2, c: 3},
-      {a: 2, b: 2, c: 3},
-      {a: 1, b: 4, c: 7},
-      {a: 1, b: 2, c: 3}]
+var prompt = require('prompt')
 
-var uniqueArr = [...new Set(arr.map(obj => JSON.stringify(obj)))].map(str=>JSON.parse(str))
+var db = 'up';
+var dbhost = 'localhost';
+var user = 'ian'
+var pwd = 'regalis'
 
-var {Op, QueryTypes} = require('sequelize') //we need this for the where objects
+var specify = require('./interfaces/specify/specifyInterface')(db, dbhost, user, pwd)
 
+var funcs = require('./interfaces/taxaMigrationFunctions.js')
 
-var taxa = null
-zodatsaTaxa.query('select top 10 kingdom, phylum, class, [order], family, genus, scientificName from taxa where family is not null', { type: QueryTypes.SELECT }).then(res => {taxa = res;console.log('Done')}).catch(err=> console.log(err))
+//show disciplines
+funcs.showDisciplines(specify).then(_ => {
 
-var filteredTaxa = taxa.filter(uniqueHigherTaxaFilter)
+  var discipline = 'Herpetology'
+  specify.getTreeDef(discipline).then(treeDef => {
+    specify.getMaxNodeNumber(treeDef).then(num => {
+      console.log('Maximum node number for ' + discipline + ': ' + num)
+    })
+    .catch(err =>{
+      console.log(err)
+    })
+  })
+  .catch(err => {
+    console.log(err)
+  }) 
+  
+}).catch(err => console.log(err))

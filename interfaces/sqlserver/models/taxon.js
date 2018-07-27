@@ -2,7 +2,7 @@
 
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('taxon', {
-    taxonId: {
+    taxonID: {
       type: DataTypes.INTEGER,
       allowNull: false,
       primaryKey: true,
@@ -41,7 +41,7 @@ module.exports = function(sequelize, DataTypes) {
     subgenus: {
       type: DataTypes.STRING,
       allowNull: true,
-      field: 'subgenus'
+      field: 'Subgenus'
     },
     species: {
       type: DataTypes.STRING,
@@ -51,7 +51,7 @@ module.exports = function(sequelize, DataTypes) {
     subspecies: {
       type: DataTypes.STRING,
       allowNull: true,
-      field: 'Infraspecies'
+      field: 'Subspecies'
     },
     scientificName: {
       type: DataTypes.STRING,
@@ -82,8 +82,13 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'accepted_species_author'
+    },
+    edits: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'edits'
     }
   }, {
-    tableName: 'taxa'
+    tableName: 'taxon'
   });
 };
