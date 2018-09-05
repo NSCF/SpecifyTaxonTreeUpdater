@@ -1,5 +1,14 @@
 module.exports = function(name, rank, parentName, parentRank, zodatsaTaxa){
   
+  if (parentRank == 'Life') {
+    return [
+      {
+        taxon: zodatsaTaxa[0],
+        rank: rank
+      }
+    ]
+  }
+
   //we need to know if this is a leaf taxon so that we know whether to consider synonyms or not (not for leaf taxa)
   var leafTaxon = false
   if (rank.toLowerCase() == 'subspecies') {

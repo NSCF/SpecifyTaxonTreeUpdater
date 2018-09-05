@@ -1,5 +1,5 @@
-module.exports = function findTaxonInTree(searchField, searchVal, node, result) {
-  if (node[searchField] == searchVal) {
+module.exports = function findAcceptedTaxon(synonym, node, result) {
+  if (node.scientificName == synonym.tempAcceptedTaxonName && node.author == synonym.tempAcceptedTaxonAuthor) {
     result.node = node
     return true
   }
@@ -8,11 +8,11 @@ module.exports = function findTaxonInTree(searchField, searchVal, node, result) 
   if (node.children && Array.isArray(node.children) && node.children.length > 0) {
     var children = node.children.map(child => child.name).join(', ')
     for (var childNode of node.children) {
-      if (childNode[searchField] == searchVal) {
+      if (node.scientificName == synonym.tempAcceptedTaxonName && node.author == synonym.tempAcceptedTaxonAuthor) {
         result.node = childNode
         return true
       }
-      found = findTaxonInTree(searchField, searchVal, childNode, result)
+      found = findTaxonInTree(synonym, childNode, result)
     }
     return found
   }

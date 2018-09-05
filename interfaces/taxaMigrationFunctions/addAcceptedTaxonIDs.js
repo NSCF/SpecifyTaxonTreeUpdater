@@ -32,7 +32,7 @@ module.exports = async function(taxonTree) {
   for (var syn of synonymObject.synonyms) {
 
     var acceptedTaxon = { node: null}
-    findTaxonInTree('fullName', syn.tempAcceptedTaxonName, taxonTree, acceptedTaxon)
+    findTaxonInTree(syn, taxonTree, acceptedTaxon)
 
     if (acceptedTaxon.node) {
       syn.acceptedId = acceptedTaxon.node.taxonId //we save this later after adding the node numbers

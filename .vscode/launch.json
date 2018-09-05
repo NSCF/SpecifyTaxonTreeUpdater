@@ -33,6 +33,12 @@
       "request": "launch",
       "name": "Launch createSpecifyTaxa",
       "program": "${workspaceFolder}\\scripts\\taxaMigration.js"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch getTaxonCounts",
+      "program": "${workspaceFolder}\\scripts\\taxonCountsPerDiscipline.js"
     }
   ]
 }

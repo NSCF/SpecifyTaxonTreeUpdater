@@ -110,12 +110,12 @@ module.exports = function(db, dbhost) {
       nameUpdates.updateCount++;
       var higherClass = matchingHigherTaxa[0]
       update.updateString += 
-        'UPDATE taxa SET kingdom = \'' + higherClass.kingdom + 
+        'UPDATE taxon SET kingdom = \'' + higherClass.kingdom + 
         '\', phylum = \'' + higherClass.phylum + 
         '\', class = \'' + higherClass.class + 
         '\', [order] = \'' + higherClass.order + 
         '\', family = \'' + higherClass.family + 
-        '\', edits = \'Higher taxa copied from taxon ' + matchingHigherTaxa[0].scientificName + ' using ' + whereField + ' ' + taxon[propertyName] + '\' + CHAR(13)' + //CHAR(13) adds a newline so that each edit can be seen separately.
+        '\', edits = \'Higher taxa copied from taxon ' + matchingHigherTaxa[0].scientificName.replace(/'/g, `''`) + ' using ' + whereField + ' ' + taxon[propertyName] + '\' + CHAR(13)' + //CHAR(13) adds a newline so that each edit can be seen separately.
         ' output @@ROWCOUNT as affectedrows' //so we can work out how many updates were actually made
 
       //we need to do upldates differently if it's for general to prevent overwriting other updates
@@ -197,7 +197,7 @@ module.exports = function(db, dbhost) {
     }
 
     //get the initial set of higher taxa
-    var sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxa WHERE TRIM(scientificName) IN (\''
+    var sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon WHERE TRIM(scientificName) IN (\''
     var taxonNames = new Set() //so we only have unique
     taxaWithNoHigherClass.forEach(taxon=>{
       if (taxon.acceptedSpeciesName) { //some are empty strings
@@ -268,7 +268,7 @@ module.exports = function(db, dbhost) {
                 else {
     
                   //see if we can find the genus in the database
-                  sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxa ' +
+                  sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon ' +
                     'WHERE TRIM(genus) = \'' + searchGenus + '\' AND family is not null'
 
                   sqlStart = microtime.now()
@@ -313,7 +313,7 @@ module.exports = function(db, dbhost) {
                       else {
 
                         //check in the database
-                        sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxa ' +
+                        sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon ' +
                           'WHERE TRIM(scientificName) = \'' + taxon.scientificName.trim() + '\' AND family is not null'
                         
                         sqlStart = microtime.now()
@@ -361,7 +361,7 @@ module.exports = function(db, dbhost) {
                             }
                             else {
                               //check the database using the genus part of the scientificName
-                              sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxa ' +
+                              sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon ' +
                                 'WHERE TRIM(genus) = \'' + searchGenus + '\' AND family is not null'
                               
                               sqlStart = microtime.now()
@@ -438,7 +438,7 @@ module.exports = function(db, dbhost) {
             else {
 
               //check in the database
-              sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxa ' +
+              sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon ' +
                 'WHERE TRIM(scientificName) = \'' + taxon.scientificName.trim() + '\' AND family is not null'
               
               sqlStart = microtime.now()
@@ -486,7 +486,7 @@ module.exports = function(db, dbhost) {
                   }
                   else {
                     //check the database using the genus part of the scientificName
-                    sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxa ' +
+                    sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon ' +
                       'WHERE TRIM(genus) = \'' + searchGenus + '\' AND family is not null'
                     
                     sqlStart = microtime.now()
@@ -543,15 +543,18 @@ module.exports = function(db, dbhost) {
         perf.allTimes.push(end-start)
 
         //for testing only
+        /*
         if (perf.allTimes.length == 1578) { //its 1579!!!
           var pause = null;
           //break
         }
         
+        
         if ([1000, 2000, 5000, 7000, 10000, 12000, 15000].includes(perf.allTimes.length)){
           var pause = null;
           //break
         }
+        */
         
 
       }
@@ -584,7 +587,7 @@ module.exports = function(db, dbhost) {
       
       var updateStart = Date.now()
       console.log('Updating higher taxa')
-      try{
+      try {
         var updateQryResults = await zodatsaTaxa.query(update.updateString)
       }
       catch(err){
@@ -641,7 +644,7 @@ module.exports = function(db, dbhost) {
       
       var fetchQryStart = Date.now()
 
-      var sql = 'SELECT [' + col + '] from taxa WHERE [' +  col + '] LIKE \'%\'\'\'' //we need the brackets for 'order'
+      var sql = 'SELECT [' + col + '] from taxon WHERE [' +  col + '] LIKE \'%\'\'\'' //we need the brackets for 'order'
       promiseArr.push(zodatsaTaxa.query(sql, { type: QueryTypes.SELECT }))
       
     }
@@ -669,7 +672,7 @@ module.exports = function(db, dbhost) {
           for (var name of uniqueNames) {
             var strippedName = name.replace(singleQuoteRegex, '')
             var quotedName = name.replace(singleQuoteRegex, '\'\'') //we need the double quotes for SQL WHERE clause
-            updateSql += 'UPDATE taxa SET [' + checkColsArray[index] + '] = \'' + 
+            updateSql += 'UPDATE taxon SET [' + checkColsArray[index] + '] = \'' + 
               strippedName + '\' output @@rowcount as rowsaffected WHERE [' + checkColsArray[index] + '] = \'' + quotedName + '\';'
           }
         }
@@ -716,7 +719,7 @@ module.exports = function(db, dbhost) {
       
       var fetchQryStart = Date.now()
 
-      var sql = `SELECT [${col}] FROM taxa WHERE LEFT([${col}],1) != UPPER(LEFT([${col}],1)) COLLATE SQL_Latin1_General_CP1_CS_AS OR
+      var sql = `SELECT [${col}] FROM taxon WHERE LEFT([${col}],1) != UPPER(LEFT([${col}],1)) COLLATE SQL_Latin1_General_CP1_CS_AS OR
         SUBSTRING([${col}], 2, LEN([${col}])) != LOWER(SUBSTRING([${col}], 2, LEN([${col}]))) COLLATE SQL_Latin1_General_CP1_CS_AS`
       
       promiseArr.push(zodatsaTaxa.query(sql, { type: QueryTypes.SELECT }))
@@ -742,7 +745,7 @@ module.exports = function(db, dbhost) {
           var uniqueNames = namesObjArr.map(namesObj => namesObj[checkColsArray[index]]).filter(onlyUnique)
           for (var name of uniqueNames) {
             var titleCaseName = name[0].toUpperCase() + name.slice(1, name.length).toLowerCase()
-            updateSql += 'UPDATE taxa SET [' + checkColsArray[index] + '] = \'' + 
+            updateSql += 'UPDATE taxon SET [' + checkColsArray[index] + '] = \'' + 
               titleCaseName + '\' output @@rowcount as rowsaffected WHERE [' + checkColsArray[index] + '] = \'' + name + '\' COLLATE SQL_Latin1_General_CP1_CS_AS;'
           }
         }
@@ -774,11 +777,53 @@ module.exports = function(db, dbhost) {
 
   }
 
+  async function trimStrings(fields) {
+    for (var field of fields) {
+      var sql = `SELECT DISTINCT [${field}] FROM taxon WHERE [${field}] LIKE ' %' OR [${field}] LIKE '% '`
+      try {
+        var taxaWithWhiteSpace = await zodatsaTaxa.query(sql, {type: QueryTypes.SELECT})
+      }
+      catch(err) {
+        console.log(err)
+      }
+      
+
+      //so we just have the names
+      var taxonNames = []
+      for (var taxonObj of taxaWithWhiteSpace){
+        taxonNames.push(taxonObj[Object.keys(taxonObj)[0]])
+      }
+
+      var updateSQL = ''
+      for (var name of taxonNames){
+        var trimmedName = name.trim()
+        if (trimmedName == '') {
+          updateSQL += `UPDATE taxon SET [${field}] = NULL WHERE [${field}] = '${name}';`
+        }
+        else {
+          updateSQL += `UPDATE taxon SET [${field}] = '${name.trim().replace(/'/g, `''`)}' WHERE [${field}] = '${name.replace(/'/g, `''`)}';`
+        }
+        
+      }
+
+      if (updateSQL != '') {
+        try {
+          await zodatsaTaxa.query(updateSQL, {type: QueryTypes.SELECT})
+          var i = 0
+        }
+        catch(err) {
+          console.log(err)
+        }
+      }
+    }
+  }
+
   return {
 
     addMissingHigherTaxa: addMissingHigherTaxa,
     removeSingleQuotes: removeSingleQuotes,
-    makeTitleCase: makeTitleCase
+    makeTitleCase: makeTitleCase,
+    trimStrings: trimStrings
 
   }
 

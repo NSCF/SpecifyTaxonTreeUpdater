@@ -1,0 +1,52 @@
+Taxa	Rank
+Ctenophora, Kinorhyncha, Loricifera, Priapulida, Chaetognatha, Gnathostomulida, Phoronida	Phylum
+Bryozoa	Phylum
+Porifera	Phylum
+Cnidaria	Phylum
+Platyhelminthes 	Phylum
+Nematoda	Phylum
+Polychaeta	Class
+Clitellata	Class
+Bivalvia	Class
+Gastropoda	Class
+Cephalopoda	Class
+Polyplacophora, Scaphopoda	Class
+Echinodermata	Phylum
+Decapoda	Order
+Amphipoda, Isopoda	Order
+Branchiopoda, Copepoda, Hexanauplia, Maxillopoda, Ostracoda	Class
+Diplopoda, Pauropoda, Symphyla	Class
+Chilopoda	Class
+Araneae	Order
+Scorpiones	Order
+Astigmata, Mesostigmata, Prostigmata, Sarcoptiformes, Trombidiformes	Order
+Ixodida	Order
+Solifugae, Opiliones, Pseudoscorpiones, Palpigradi, Schizomida, Ricinulei, Amblypygi	Order
+Pycnogonida	Class
+Coleoptera	Order
+Lepidoptera	Order
+Diptera	Order
+Hymenoptera	Order
+Hemiptera	Order
+Blattodea, Mantida, Isoptera	Order
+Orthoptera	Order
+Odonata	Order
+Ephemeroptera, Trichoptera, Plecoptera	Order
+Neuroptera	Order
+Thysanoptera	Order
+Psocodea	Order
+Entognatha	Class
+Archaeognatha	Order
+Dermaptera	Order
+Phasmida	Order
+Siphonaptera	Order
+Embioptera, Strepsiptera, Zoraptera, Raphidoptera, Mecoptera, Mantophasmatodea	Order
+Onychophora, Tardigrada, Nematomorpha	Phylum
+Rotifera, Gastrotricha, Entoprocta, Nemertea	Phylum
+Thaliacea, Sorberacea, Leptocardii, Appendicularia, Ascidiacea	Class
+Chondrichthyes, Holocephali	Class
+Actinopterygii, Myxini, Cephalaspidomorphi, Sarcopterygii, Elasmobranchii	Class
+Amphibia	Class
+Reptilia	Class
+Aves	Class
+Mammalia	Class

@@ -122,29 +122,12 @@ module.exports = async function createDisciplineTaxa(disciplineName, taxaDefs, s
       throw err
     }
 
-    //create the Specify record for this starting taxon
-    var taxonData = createTaxonData(zodatsaTaxa[0], highestDisciplineRank, treeDef, rootTaxon, userAgent)
-
     try {
-      var firstHigherTaxonArry = await specify.createTaxa([taxonData], treeDef, rootTaxon.name)
-    }
-    catch(err){
-      throw err
-    }
-
-    var firstHigherTaxon = firstHigherTaxonArry[0]
-
-    //specifyTaxon is now the higherTaxon. Get the children and create the Specify records
-    //this creates everything recursively
-    //this does the accepted taxa only
-    try {
-      await createChildTaxa(firstHigherTaxon, zodatsaTaxa, treeDef, specify, userAgent)
+      await createChildTaxa(rootTaxon, zodatsaTaxa, treeDef, specify, userAgent)
     }
     catch(err) {
       throw(err)
     }
-    
-    rootTaxon.children.push(firstHigherTaxon)
 
   }
 

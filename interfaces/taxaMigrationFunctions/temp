@@ -1,0 +1,132 @@
+var parentTreeDefItem = treeDef.treeDefItems.find(item => {
+    return item.TaxonTreeDefItemID == parentSpecifyTaxon.taxonTreeDefItemId
+  })
+  var parentRank = parentTreeDefItem.Name
+
+  //get the next treeDef rank
+  var nextTreeDefRankItem = treeDef.treeDefItems.find(item => item.ParentItemID == parentTreeDefItem.TaxonTreeDefItemID)
+  var searchRank = nextTreeDefRankItem.Name
+
+  var zodatsaTaxaForThisParent
+  if (parentRank == 'Life'){
+    zodatsaTaxaForThisParent = zodatsaTaxa
+  }
+  else {
+    zodatsaTaxaForThisParent = zodatsaTaxa.filter(taxon => taxon[parentRank] == parentSpecifyTaxon.name)
+  }
+   
+
+  //we need the unique names for this rank
+  //some, like subgenus, dont have names so we need to keep looking
+  var childTaxa = []
+  var childTaxonNamesForThisRank = zodatsaTaxaForThisParent.map(taxon => taxon[searchRank]).filter( onlyUnique )
+
+
+  
+  //walk down the tree until we have no nulls
+  while (childTaxonNamesForThisRank.includes(null || undefined)) {
+
+
+    //if we get undefined then it means we don't have this rank
+    //if it's required throw, else keep looking
+    while (childTaxonNamesForThisRank[0] == undefined){
+      if (nextTreeDefRankItem.IsEnforced) {
+        throw new Error('No valid taxon names for required rank ' + searchRank)
+      }
+      nextTreeDefRankItem = treeDef.treeDefItems.find(item => item.ParentItemID == nextTreeDefRankItem.TaxonTreeDefItemID)
+      if (nextTreeDefRankItem){
+        searchRank = nextTreeDefRankItem.Name
+        childTaxonNamesForThisRank = zodatsaTaxaForThisParent.map(taxon => taxon[searchRank]).filter( onlyUnique )
+      }
+      else {
+        //we reached the end and got nothing, so stop
+        break
+      }
+    }
+
+    //get the zodatsataxon objects with their ranks for this set of child names
+    var namesNotNull = childTaxonNamesForThisRank.filter(name => name != null)
+    namesNotNull.forEach(name => {
+      let taxa = findZodatsaTaxa(name, searchRank, parentSpecifyTaxon.name, parentRank, zodatsaTaxa)
+      childTaxa.push.apply(childTaxa, taxa)
+    })
+
+    nextTreeDefRankItem = treeDef.treeDefItems.find(item => item.ParentItemID == nextTreeDefRankItem.TaxonTreeDefItemID)
+    if (!nextTreeDefRankItem) { //we reached the end, these were added in the last step, return from the recursion
+      break
+    }
+
+    //we need to handle cases where some of child taxa might have already been captured, as in the cases of subgenera
+    var previousNames = childTaxonNamesForThisRank.filter(name => name != null)
+    var previousRank = searchRank
+    searchRank = nextTreeDefRankItem.Name
+    childTaxonNamesForThisRank = zodatsaTaxaForThisParent.filter(taxon => !previousNames.includes(taxon[previousRank])).map(taxon => taxon[searchRank]).filter( onlyUnique )
+    namesNotNull = childTaxonNamesForThisRank.filter(name => name != null)
+    
+    if (namesNotNull.length == 0){
+      if (nextTreeDefRankItem.IsEnforced) {
+        throw new Error('No valid taxon names for required rank ' + searchRank)
+      }
+    }
+    else {
+      namesNotNull.forEach(name => {
+        let taxa = findZodatsaTaxa(name, searchRank, parentSpecifyTaxon.name, parentRank, zodatsaTaxa)
+        childTaxa.push.apply(childTaxa, taxa)
+      })
+    }
+  }
+
+  var childTaxonData
+  var childTaxaNames = childTaxa.map(obj => {
+    return obj.taxon[obj.rank]
+  }).join(', ')
+
+  //we need to handle any that are subspecies without higher species rank taxa
+  if (searchRank == 'Species') {
+    var correctedTaxa = []
+    for (var obj of childTaxa) {
+      //we need an error check for subspecies with no higher species
+      let zodatsaTaxon = obj.taxon
+      let namesArray = zodatsaTaxon.scientificName.split(' ').filter(str => str.length && str.length > 0)
+      let scientificNameIsSubspecies = namesArray.length > 2 && zodatsaTaxon.scientificName.includes('(')
+      if (scientificNameIsSubspecies) {
+        //deep copy
+        let newTaxon = JSON.parse(JSON.stringify(zodatsaTaxon))
+        newTaxon.scientificName = namesArray.slice(0, namesArray.length-1).join(' ')
+        correctedTaxa.push({taxon: newTaxon, rank: searchRank } )
+      }
+      else {
+        correctedTaxa.push(obj)
+      }
+    }
+    childTaxa = correctedTaxa
+  }
+
+  if (childTaxa.length > 0) {
+    childTaxonData = childTaxa.map(obj => createTaxonData(obj.taxon, obj.rank, treeDef, parentSpecifyTaxon, userAgent))
+
+    //create the database records
+    try {
+      var specifyTaxa = await specify.createTaxa(childTaxonData, treeDef)
+    }
+    catch(err){
+      console.log('error creating accepted taxa for ' + parentSpecifyTaxon.name)
+      throw err
+    }  
+  
+    parentSpecifyTaxon.children = specifyTaxa
+  
+    //recurse
+    for (var specifyTaxon of specifyTaxa) {
+      try {
+        await createChildTaxa(specifyTaxon, zodatsaTaxa, treeDef, specify, userAgent)
+      }
+      catch(err){
+        throw err
+      }
+    }
+    return
+  }
+  else {
+    return
+  }

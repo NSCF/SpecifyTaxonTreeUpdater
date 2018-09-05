@@ -20,6 +20,6 @@ const specify = require(process.cwd() + '/interfaces/specify/specifyInterface.js
 var taxaDefs = [ {Phylum: 'Arthropoda'}]
 
 
-createDisciplineTaxa('test', taxaDefs, specify, sqlserver, 'ian').catch(err => {
+var t = createDisciplineTaxa('test', taxaDefs, specify, sqlserver, 'ian').catch(err => {
   console.log(err.message)
 })

@@ -22,6 +22,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
     version: {
       type: DataTypes.INTEGER(11),
       allowNull: true,
+      defaultValue: 1,
       field: 'Version'
     },
     author: {
@@ -366,7 +367,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
       allowNull: true,
       field: 'Text11'
     },
-    text12: {
+    tempAcceptedTaxonAuthor: {
       type: DataTypes.STRING(128),
       allowNull: true,
       field: 'Text12'

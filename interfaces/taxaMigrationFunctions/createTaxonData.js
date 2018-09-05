@@ -57,6 +57,7 @@ module.exports = function createTaxonData(zodatsaTaxon, rank, treeDef, parentSpe
     }
     else { //these are synonyms
       taxonData.tempAcceptedTaxonName = zodatsaTaxon.accepted_species_name.trim()
+      taxonData.tempAcceptedTaxonAuthor = zodatsaTaxon.accepted_species_author.trim()
       taxonData.isAccepted = false
     }
 
