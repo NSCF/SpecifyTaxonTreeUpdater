@@ -14,7 +14,11 @@ var dbhost = 'localhost';
 
 var cleaningFuncs = require('../interfaces/sqlserver/sqlCleaningFunctions.js')(db, dbhost)
 
-var trimFields = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'subgenus', 'species', 'subspecies']
+//var trimFields = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'subgenus', 'species', 'subspecies']
+
+//var trimFields = ['authorship', 'accepted_species_author']
+
+//cleaningFuncs.trimStrings(trimFields).then( _ => {console.log('trim strings complete')}).catch(err => {console.log(': ' + err)})
 
 /*
 console.log('staring data cleaning with removing quotes')
@@ -26,4 +30,18 @@ cleaningFuncs.removeSingleQuotes(trimFields).then(_ => {
   }).catch(err => {console.log(': ' + err)})
 }).catch(err => {console.log(': ' + err)})
 */
-cleaningFuncs.addMissingHigherTaxa().then( _ => console.log('Higher taxa cleaning complete')).catch(err => {console.log(': ' + err)})
+
+//cleaningFuncs.addMissingHigherTaxa().then( _ => console.log('Higher taxa cleaning complete')).catch(err => {console.log(': ' + err)})
+
+//cleaningFuncs.removeDuplicates().then( _ => console.log('Finished removing duplicates')).catch(err => {console.log(': ' + err)})
+
+//cleaningFuncs.showUniqueChars('Authorship').then( _ => {console.log('unique chars complete')}).catch(err => {console.log(': ' + err)})
+
+//cleaningFuncs.replaceSpecialChars('accepted_species_author', 'taxon').then( _ => {console.log('special character replacement complete')}).catch(err => {console.log(': ' + err)})
+
+//cleaningFuncs.replaceSuperscript('n','ü','Authorship','taxon').then( _ => {console.log('superscript replacement complete')}).catch(err => {console.log(': ' + err)})
+
+var lines
+cleaningFuncs.readMissingTaxaLog().then(res => lines = res).catch(err=> console.log('there was an error'))
+
+var x = 2

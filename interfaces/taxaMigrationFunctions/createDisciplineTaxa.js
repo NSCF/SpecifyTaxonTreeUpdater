@@ -4,13 +4,17 @@ const fs = require('fs');
 const appendFile = util.promisify(fs.appendFile)
 
 var {QueryTypes} = require('sequelize')
-var createTaxonData = require(process.cwd() + '/interfaces/taxaMigrationFunctions/createTaxonData')
+
 var createChildTaxa = require(process.cwd() + '/interfaces/taxaMigrationFunctions/createChildTaxa')
 var addAcceptedTaxonIDs = require(process.cwd() + '/interfaces/taxaMigrationFunctions/addAcceptedTaxonIDs')
 var addNodeNumbers = require (process.cwd() + '/interfaces/taxaMigrationFunctions/addNodeNumbers')
 var saveTaxonTree = require (process.cwd() + '/interfaces/taxaMigrationFunctions/saveTaxonTree')
 
 module.exports = async function createDisciplineTaxa(disciplineName, taxaDefs, specify, mssqldb, userName) {
+
+  var langCodesMap = await require(process.cwd() + '/interfaces/taxaMigrationFunctions/getLanguageCodesMap')(process.cwd() + '/temp/lang_codes.csv')
+
+
   if (!disciplineName || !taxaDefs || !Array.isArray(taxaDefs) || !taxaDefs.length > 0){
     console.log('Invalid input parameters')
     return
@@ -56,7 +60,7 @@ module.exports = async function createDisciplineTaxa(disciplineName, taxaDefs, s
 
   //make sure the user is signed in and has permission to modify taxonomy
   if (user){
-    if (!user.IsLoggedIn || user.UserType != 'FullAccess'){
+    if (!(user.IsLoggedIn && user.UserType == 'FullAccess' || 'Manager')){
       throw new Error('User must be logged into Specify and be of type Manager')
     }
   }
@@ -114,16 +118,32 @@ module.exports = async function createDisciplineTaxa(disciplineName, taxaDefs, s
 
     //get the taxa from the zodatsa db
     console.log('fetching zodatsa taxa for ' + highestDisciplineRank + ' ' + highestRankTaxonName)
+
+    //create the query params object
+    var params = { 
+      where: def, 
+      include:  [
+        {model: mssqldb.SqlCommonName, as: 'commonNames'}, 
+        {model: mssqldb.SqlDistribution, as: 'distribution'}, 
+        {model: mssqldb.SqlReference, as: 'taxonReferences'}
+      ]
+    }
+
     try {
-      var zodatsaTaxa = await mssqldb.query(`SELECT * FROM taxon WHERE [${highestDisciplineRank}] = '${highestRankTaxonName}'`, { type: QueryTypes.SELECT})
+
+      var zodatsaTaxa = await mssqldb.getTaxa(params)
+      
+      //var zodatsaTaxa = await mssqldb.query(`SELECT * FROM taxon WHERE [${highestDisciplineRank}] = '${highestRankTaxonName}'`, { type: QueryTypes.SELECT})
     }
     catch(err){
       console.log('Error getting taxa from zodatsa database')
       throw err
     }
 
+    //create the taxa
     try {
-      await createChildTaxa(rootTaxon, zodatsaTaxa, treeDef, specify, userAgent)
+      console.log('creating Specify taxa for ' + highestDisciplineRank + ' ' + highestRankTaxonName)
+      await createChildTaxa(rootTaxon, zodatsaTaxa, treeDef, specify, userAgent, langCodesMap)
     }
     catch(err) {
       throw(err)

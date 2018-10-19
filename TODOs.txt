@@ -1,0 +1,14 @@
+Taxon migration TODOs:
+
+- map the three letter language codes to two letter codes - done
+- add the distribution data to the taxon - done
+- add the distribution fields in Specify -done
+- check values of distribution.taxonreferencesource vs taxonreference - all a mess. just pulling in as it is
+- also sort out out publicationDetails vs taxonreferencesource vs webreference -  as above
+- move barcodeStatus to nativeStatus - done for termites
+- fix all the sql server models - done
+- work out how to deal with the references - See below. 
+But first need to parse out the author names, see https://www.crossref.org/labs/resolving-citations-we-dont-need-no-stinkin-parser/
+Do this afterwards, just store the referenceIDs to use!
+
+NB TODO: remove duplicates from taxonReferences

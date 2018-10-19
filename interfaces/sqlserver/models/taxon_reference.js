@@ -2,17 +2,17 @@
 
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('taxonReference', {
-    taxonId: {
+    taxonID: {
       type: DataTypes.INTEGER,
       allowNull: false,
       field: 'taxonID'
     },
-    referencesId: {
+    referenceID: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      field: 'references_id'
+      field: 'referenceID'
     }
   }, {
-    tableName: 'taxon_references'
+    tableName: 'taxonreference'
   });
 };

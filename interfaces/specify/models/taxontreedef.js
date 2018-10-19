@@ -2,7 +2,7 @@
 
 module.exports = function(sequelizeInstance, DataTypes) {
   return sequelizeInstance.define('taxontreedef', {
-    taxonTreeDefId: {
+    taxonTreeDefID: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
       primaryKey: true,
@@ -39,7 +39,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
       allowNull: true,
       field: 'Remarks'
     },
-    createdByAgentId: {
+    createdByAgentID: {
       type: DataTypes.INTEGER(11),
       allowNull: true,
       references: {
@@ -48,7 +48,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
       },
       field: 'CreatedByAgentID'
     },
-    modifiedByAgentId: {
+    modifiedByAgentID: {
       type: DataTypes.INTEGER(11),
       allowNull: true,
       references: {

@@ -16,6 +16,7 @@ module.exports = function(db, dbhost, user, pwd) {
 
   //define the relationships
   SpecifyUser.hasOne(SpecifyAgent, {foreignKey: 'SpecifyUserID'})
+  SpecifyTaxon.hasMany(SpecifyCommonName, {as : 'allCommonNames', foreignKey: 'taxonID' })
   SpecifyTaxon.belongsTo(SpecifyTaxonTreeDef,{as: 'treeDef', foreignKey: 'TaxonTreeDefID'})
   SpecifyTaxon.belongsTo(SpecifyTaxonTreeDefItem, {as: 'treeDefItem', foreignKey: 'TaxonTreeDefItemID'})
   SpecifyTaxon.belongsTo(SpecifyAgent, {as: 'createdBy', foreignKey: 'CreatedByAgentID'})
@@ -62,7 +63,7 @@ module.exports = function(db, dbhost, user, pwd) {
   async function getMaxNodeNumber(treeDef){
     
     try {
-      var highestNodeTaxa = await SpecifyTaxon.findAll( {where:{taxonTreeDefId: treeDef.taxonTreeDefId} , order:[['nodeNumber', 'DESC']], limit: 1} )
+      var highestNodeTaxa = await SpecifyTaxon.findAll( {where:{taxonTreeDefID: treeDef.taxonTreeDefID} , order:[['nodeNumber', 'DESC']], limit: 1} )
     }
     catch(err) {
       console.log('there was an error getting the node number')
@@ -94,13 +95,13 @@ module.exports = function(db, dbhost, user, pwd) {
   async function getRootTaxon(treeDef) {
 
     try {
-      let taxa = await SpecifyTaxon.findAll({where: {taxonTreeDefId: treeDef.taxonTreeDefId, parentId: null} })
+      let taxa = await SpecifyTaxon.findAll({where: {taxonTreeDefID: treeDef.taxonTreeDefID, parentID: null} })
       if (taxa.length > 0){
         console.log("Root taxon found for discipline  " +  treeDef.discipline.Name)
         return taxa[0]
       }
       else {
-        console.log('no root taxon found for discipline ' +  treeDef.discipline.Name)
+        throw new Error('no root taxon found for discipline ' +  treeDef.discipline.Name)
       }
     }
     catch(err){
@@ -141,6 +142,23 @@ module.exports = function(db, dbhost, user, pwd) {
     //use a date value for searching the database for added records
     var now = new Date()
 
+    //because we have common names we have to create each record individually (bulkCreate does not support child records)
+    for (var taxonData of taxaData) {
+      try {
+        await SpecifyTaxon.create(taxonData, {
+          include: [{
+            model: SpecifyCommonName,
+            foreignKey: 'taxonID',
+            as: 'allCommonNames'
+          }]
+        })
+      }
+      catch(err) {
+        throw err
+      }
+    }
+    
+    /*
     //create the taxon records
     try {
       var t = await SpecifyTaxon.bulkCreate(taxaData)
@@ -148,14 +166,14 @@ module.exports = function(db, dbhost, user, pwd) {
     catch(err){
       throw err
     }
+    */
 
     //then query it again to get all the values
     //first we need the names
-    var searchNames = taxaData.map(taxonData => taxonData.name)
-    var parentIDs = taxaData.map(taxonData => taxonData.parentId)
+    var searchIDs = taxaData.map(taxonData => taxonData.originalSANBITaxonID)
     var where = {
-      name: { [Op.in]: searchNames },
-      taxonTreeDefId: treeDef.taxonTreeDefId,
+      originalSANBITaxonID: { [Op.in]: searchIDs },
+      taxonTreeDefID: treeDef.taxonTreeDefID,
       timestampCreated: { [Op.gte]: now }
     }
     try {
@@ -163,6 +181,7 @@ module.exports = function(db, dbhost, user, pwd) {
     }
     catch(err) {
       console.log('Error fetching created taxa from Specify')
+      throw err
     }
 
     return returnTaxa
@@ -171,10 +190,14 @@ module.exports = function(db, dbhost, user, pwd) {
 
   async function deleteTaxa(treeDef) {
 
+    //delete commonnames
+    var commonNameDeleteSQL = `DELETE cn FROM commonnametx cn JOIN taxon t on t.taxonid = cn.taxonid WHERE t.taxontreedefID = ${treeDef.taxonTreeDefID}`
+
     //we need to remove the accepted IDs first to avoid problems
-    var updateAcceptedIDSQL = `UPDATE taxon SET acceptedID = null  WHERE taxontreedefID = ${treeDef.taxonTreeDefId} AND parentID IS NOT NULL`
-    var deleteSQL = `DELETE FROM taxon WHERE taxontreedefID = ${treeDef.taxonTreeDefId} AND parentID IS NOT NULL ORDER BY parentId DESC` 
+    var updateAcceptedIDSQL = `UPDATE taxon SET acceptedID = null  WHERE taxontreedefID = ${treeDef.taxonTreeDefID} AND parentID IS NOT NULL`
+    var deleteSQL = `DELETE FROM taxon WHERE taxontreedefID = ${treeDef.taxonTreeDefID} AND parentID IS NOT NULL ORDER BY parentID DESC` 
     try {
+      await specify.query(commonNameDeleteSQL, {type:  QueryTypes.BULKDELETE } )
       await specify.query(updateAcceptedIDSQL, {type:  QueryTypes.BULKUPDATE } )
       var res = await specify.query(deleteSQL, {type:  QueryTypes.BULKDELETE } )
     }
@@ -186,7 +209,36 @@ module.exports = function(db, dbhost, user, pwd) {
 
   }//takes the same options as .destroy
 
+  async function getTableRowCounts(csvFile) {
+
+    //get the table names
+    try {
+      var tables = await specify.query(`SELECT table_name as tbl FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '${db}'`, {type:  QueryTypes.SELECT })
+    }
+    catch(err) {
+      throw(err)
+    }
+
+    var rowCounts = {}
+    for (var table of tables){
+      var count = await specify.query(`SELECT COUNT(*) AS count FROM ${table.tbl}`, {type:  QueryTypes.SELECT })
+      rowCounts[table.tbl] = count[0].count
+    }
+
+    var fs = require('fs')
+    var csv = require('fast-csv')
+
+    var ws = fs.createWriteStream(csvFile, { flags: 'a', includeEndRowDelimiter: true });
+    csv
+      .write([rowCounts], {headers: true})
+      .pipe(ws);
+
+    console.log('done writing CSV')
+
+  }
+
   var result = {
+
     authenticate: authenticate,
     getTreeDef: getTreeDef,
     getUserAgent, getUserAgent,
@@ -194,7 +246,8 @@ module.exports = function(db, dbhost, user, pwd) {
     getDisciplines: getDisciplines, 
     createTaxa: createTaxa, 
     getMaxNodeNumber: getMaxNodeNumber,
-    deleteTaxa: deleteTaxa
+    deleteTaxa: deleteTaxa,
+    getTableRowCounts: getTableRowCounts
 
   }
 

@@ -2,7 +2,7 @@
 
 module.exports = function(sequelizeInstance, DataTypes) {
   return sequelizeInstance.define('commonnametx', {
-    commonNameTxId: {
+    commonNameTxID: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
       primaryKey: true,
@@ -67,12 +67,12 @@ module.exports = function(sequelizeInstance, DataTypes) {
       },
       field: 'CreatedByAgentID'
     },
-    taxonId: {
+    taxonID: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
       references: {
         model: 'taxon',
-        key: 'TaxonID'
+        key: 'taxonID'
       },
       field: 'TaxonID'
     }

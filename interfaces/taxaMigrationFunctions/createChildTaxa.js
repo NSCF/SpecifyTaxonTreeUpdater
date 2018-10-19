@@ -2,18 +2,25 @@ var {onlyUnique} = require(process.cwd() + '/interfaces/taxaMigrationFunctions/U
 var createTaxonData = require(process.cwd() + '/interfaces/taxaMigrationFunctions/createTaxonData')
 var findZodatsaTaxa = require(process.cwd() + '/interfaces/taxaMigrationFunctions/findZodatsaTaxa')
 
-module.exports = async function createChildTaxa(parentSpecifyTaxon, zodatsaTaxaForThisParent, treeDef, specify, userAgent){
+module.exports = async function createChildTaxa(parentSpecifyTaxon, zodatsaTaxaForThisParent, treeDef, specify, userAgent, langCodesMap){
   
-  var parentTreeDefItem = treeDef.treeDefItems.find(item => item.TaxonTreeDefItemID == parentSpecifyTaxon.taxonTreeDefItemId)
+  var parentTreeDefItem = treeDef.treeDefItems.find(item => item.TaxonTreeDefItemID == parentSpecifyTaxon.taxonTreeDefItemID)
   
   if(!parentTreeDefItem) {
-    var i = 1
+    throw new Error('Error with treedefitemIDs')
   }
 
   var nextTreeDefItem = treeDef.treeDefItems.find(item => item.ParentItemID == parentTreeDefItem.TaxonTreeDefItemID)
 
   if (!nextTreeDefItem){
-    return
+    //seems we sometimes get the same taxon!! For subspecies only....
+    if (parentSpecifyTaxon.originalSANBITaxonID == zodatsaTaxaForThisParent[0].taxonID) {
+      return
+    }
+    else {
+      throw new Error('Error with treedefitemIDs')
+    }
+    
   }
 
   var parentRank = parentTreeDefItem.Name
@@ -111,7 +118,7 @@ module.exports = async function createChildTaxa(parentSpecifyTaxon, zodatsaTaxaF
   }
 
   if (childTaxonObjects.length > 0) {
-    childTaxonData = childTaxonObjects.map(obj => createTaxonData(obj.taxon, obj.rank, treeDef, parentSpecifyTaxon, userAgent))
+    childTaxonData = childTaxonObjects.map(obj => createTaxonData(obj.taxon, obj.rank, treeDef, parentSpecifyTaxon, userAgent, langCodesMap))
 
     //create the database records
     try {
@@ -127,12 +134,12 @@ module.exports = async function createChildTaxa(parentSpecifyTaxon, zodatsaTaxaF
     //recurse
     for (var specifyTaxon of specifyTaxa) {
 
-      var specifyTaxonTreeDefItem = treeDef.treeDefItems.find(item => item.TaxonTreeDefItemID == specifyTaxon.taxonTreeDefItemId)
+      var specifyTaxonTreeDefItem = treeDef.treeDefItems.find(item => item.TaxonTreeDefItemID == specifyTaxon.taxonTreeDefItemID)
       var specifyTaxonRank = specifyTaxonTreeDefItem.Name
       var zodatsaTaxaForThisTaxon = zodatsaTaxaForThisParent.filter(taxon => taxon[specifyTaxonRank] == specifyTaxon.name)
 
       try {
-        await createChildTaxa(specifyTaxon, zodatsaTaxaForThisTaxon, treeDef, specify, userAgent)
+        await createChildTaxa(specifyTaxon, zodatsaTaxaForThisTaxon, treeDef, specify, userAgent, langCodesMap)
       }
       catch(err){
         throw err

@@ -2,10 +2,11 @@
 
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('reference', {
-    referenceId: {
+    referenceID: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      field: 'reference_id'
+      primaryKey: true,
+      field: 'referenceID'
     },
     authors: {
       type: DataTypes.STRING,
@@ -28,6 +29,6 @@ module.exports = function(sequelize, DataTypes) {
       field: 'text'
     }
   }, {
-    tableName: 'references'
+    tableName: 'reference'
   });
 };

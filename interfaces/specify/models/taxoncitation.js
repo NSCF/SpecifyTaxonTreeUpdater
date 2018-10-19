@@ -2,7 +2,7 @@
 
 module.exports = function(sequelizeInstance, DataTypes) {
   return sequelizeInstance.define('taxoncitation', {
-    taxonCitationId: {
+    taxonCitationID: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
       primaryKey: true,
@@ -59,7 +59,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
       allowNull: true,
       field: 'YesNo2'
     },
-    modifiedByAgentId: {
+    modifiedByAgentID: {
       type: DataTypes.INTEGER(11),
       allowNull: true,
       references: {
@@ -68,7 +68,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
       },
       field: 'ModifiedByAgentID'
     },
-    taxonId: {
+    taxonID: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
       references: {
@@ -77,7 +77,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
       },
       field: 'TaxonID'
     },
-    createdByAgentId: {
+    createdByAgentID: {
       type: DataTypes.INTEGER(11),
       allowNull: true,
       references: {
@@ -86,7 +86,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
       },
       field: 'CreatedByAgentID'
     },
-    referenceWorkId: {
+    referenceWorkID: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
       references: {

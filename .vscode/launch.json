@@ -31,6 +31,12 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Launch createTaxonDataTest",
+      "program": "${workspaceFolder}\\interfaces\\test\\createTaxonDataTest.js"
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "Launch createSpecifyTaxa",
       "program": "${workspaceFolder}\\scripts\\taxaMigration.js"
     },
@@ -39,6 +45,18 @@
       "request": "launch",
       "name": "Launch getTaxonCounts",
       "program": "${workspaceFolder}\\scripts\\taxonCountsPerDiscipline.js"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch getCodesMapTest",
+      "program": "${workspaceFolder}\\interfaces\\test\\mapLanguageCodeTest.js"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch getTableRowCounts",
+      "program": "${workspaceFolder}\\scripts\\getSpecifyTableRowCounts.js"
     }
   ]
 }

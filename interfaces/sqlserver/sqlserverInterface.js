@@ -6,8 +6,17 @@ module.exports = function(db, dbhost) {
   const SqlReference = zodatsaTaxa.import(process.cwd() + '/interfaces/sqlserver/models/reference')
   const SqlCommonName = zodatsaTaxa.import(process.cwd() + '/interfaces/sqlserver/models/common_name')
   const SqlTaxonReference = zodatsaTaxa.import(process.cwd() + '/interfaces/sqlserver/models/taxon_reference')
+  const SqlDistribution = zodatsaTaxa.import(process.cwd() + '/interfaces/sqlserver/models/distribution')
 
-  SqlTaxon.hasMany(SqlCommonName, {as: 'commonNames'})
+  SqlTaxon.hasMany(SqlCommonName, {as: 'commonNames', foreignKey: 'taxonID'})
+  SqlTaxon.hasMany(SqlDistribution, {as : 'distribution', foreignKey: 'taxonID'})
+  SqlTaxon.belongsToMany(SqlReference, {as: 'taxonReferences', through: SqlTaxonReference, foreignKey: 'taxonID', otherKey: 'referenceID' })
+  SqlReference.belongsToMany(SqlTaxon, {as: 'referenceTaxa', through: SqlTaxonReference, foreignKey: 'referenceID', otherKey: 'taxonID'})
+
+  SqlCommonName.removeAttribute('id')
+  SqlDistribution.removeAttribute('id')
+  SqlReference.removeAttribute('id')
+  SqlTaxonReference.removeAttribute('id')
   
   async function authenticate(){
     zodatsaTaxa.authenticate()
@@ -51,7 +60,13 @@ module.exports = function(db, dbhost) {
   return {
     authenticate: authenticate,
     getTaxa: getTaxa,
-    query: query
+    query: query,
+    //we need these for testing
+    SqlReference: SqlReference,
+    SqlCommonName: SqlCommonName,
+    SqlDistribution: SqlDistribution,
+    SqlTaxonReference: SqlTaxonReference
+
   }
 
 }

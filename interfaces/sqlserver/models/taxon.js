@@ -8,47 +8,47 @@ module.exports = function(sequelize, DataTypes) {
       primaryKey: true,
       field: 'taxonID'
     },
-    kingdom: {
+    Kingdom: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'Kingdom'
     },
-    phylum: {
+    Phylum: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'Phylum'
     },
-    class: {
+    Class: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'Class'
     },
-    order: {
+    Order: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'Order'
     },
-    family: {
+    Family: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'Family'
     },
-    genus: {
+    Genus: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'Genus'
     },
-    subgenus: {
+    Subgenus: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'Subgenus'
     },
-    species: {
+    Species: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'Species'
     },
-    subspecies: {
+    Subspecies: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'Subspecies'

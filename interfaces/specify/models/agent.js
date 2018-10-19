@@ -2,7 +2,7 @@
 
 module.exports = function(sequelizeInstance, DataTypes) {
   return sequelizeInstance.define('agent', {
-    agentId: {
+    agentID: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
       primaryKey: true,
@@ -128,7 +128,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
       },
       field: 'DivisionID'
     },
-    createdByAgentId: {
+    createdByAgentID: {
       type: DataTypes.INTEGER(11),
       allowNull: true,
       references: {
@@ -173,7 +173,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
       },
       field: 'InstitutionCCID'
     },
-    specifyUserId: {
+    specifyUserID: {
       type: DataTypes.INTEGER(11),
       allowNull: true,
       references: {
@@ -191,7 +191,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
       },
       field: 'CollectionCCID'
     },
-    modifiedByAgentId: {
+    modifiedByAgentID: {
       type: DataTypes.INTEGER(11),
       allowNull: true,
       references: {

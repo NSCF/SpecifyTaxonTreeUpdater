@@ -1,0 +1,17 @@
+Data cleaning steps
+- trimmed strings and set empty strings to null
+- removed quotes in names
+- added missing higher taxa for ca 17k records (backed up)
+- trimmed authorship fields
+- replaced special characters in author fields (ca 1100 in Authorship, 650 or accepted_species_author)
+- replaced superscript n in ca 500 records (and backed up)
+- replaced 'Θ' to 'é' character, ca 1300 records in authorship, 200 in accepted_species_author (forgot to add this to the list earlier
+!backed up!
+- removed duplicate records - 3500
+- for Hymenoptera, changed Hexapoda to Insecta, 1285 records
+- fixed some distribution errors for termites
+- replaced \N with null for references  (ca. 2800 records)
+- replaced countries and SADistribution with 'SA Country (Nation)' with South Africa, ca. 1000 records
+- moved references to new table, as unique records
+- removed duplicates from taxon_references 
+

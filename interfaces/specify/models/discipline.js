@@ -2,7 +2,7 @@
 
 module.exports = function(sequelizeInstance, DataTypes) {
   return sequelizeInstance.define('discipline', {
-    UserGroupScopeId: {
+    UserGroupScopeID: {
       type: DataTypes.INTEGER(11),
       allowNull: false,
       primaryKey: true
@@ -35,7 +35,7 @@ module.exports = function(sequelizeInstance, DataTypes) {
         key: 'AgentID'
       }
     },
-    disciplineId: {
+    disciplineID: {
       type: DataTypes.INTEGER(11),
       allowNull: true
     },

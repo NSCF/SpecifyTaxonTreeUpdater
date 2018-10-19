@@ -1,6 +1,7 @@
 const microtime = require('microtime')
 const fs = require('fs')
 const {promisify} = require('util');
+const LineByLineReader = require('line-by-line')
 
 const appendFile = promisify(fs.appendFile)
 
@@ -50,6 +51,13 @@ module.exports = function(db, dbhost) {
 
   //we need helper functions
 
+  function timeNow() {
+    var d = new Date(),
+        h = (d.getHours()<10?'0':'') + d.getHours(),
+        m = (d.getMinutes()<10?'0':'') + d.getMinutes();
+    return h + ':' + m;
+  }
+
   //for arrays of primitive types, from https://stackoverflow.com/questions/1960473/get-all-unique-values-in-a-javascript-array-remove-duplicates
   function onlyUnique(value, index, self) { 
     return self.indexOf(value) === index;
@@ -92,39 +100,184 @@ module.exports = function(db, dbhost) {
     return result;
   }
 
-  function createUpdateStatement(matchingHigherTaxa, nameErrors, taxon, whereField, nameUpdates, update, genusSearch, taxonUpdateCount){
-    if (matchingHigherTaxa.length > 1){
-      addNameError(taxon, nameErrors, 'Multiple higher classifications exist', matchingHigherTaxa)
+  function readMissingTaxaLog(){
+
+    console.log('starting readMissingTaxaLog')
+
+    return new Promise((resolve, reject) => {
+
+      var lines = []
+
+      lr = new LineByLineReader('./sqlCleaning.log');
+
+      lr.on('error', function (err) {
+        // 'err' contains error object
+        console.log('error reading file' + err)
+        reject(err)
+      });
+
+      lr.on('line', function (line) {
+        // 'line' contains the current line without the trailing newline character.
+        console.log('reading a line')
+        lines.push(line)
+      });
+
+      lr.on('end', function () {
+        // All lines are read, file is closed now.
+        console.log('finished reading file')
+        resolve(lines)
+      });
+
+    })
+    
+  }
+
+  async function getHigherTaxaFromDB(sql, taxon, sqlErrors, perf) {
+    var sqlStart = microtime.now()
+    try {
+      var matchingHigherTaxa = await zodatsaTaxa.query(sql, { type: QueryTypes.SELECT })
+    }
+    catch(err){
+      sqlErrors.push(
+        {
+          taxonID: taxon.taxonID,
+          scientificName: taxon.scientificName,
+          error: 'Error fetching higher taxa: ' + err
+        }
+      )
+      return []
+    }
+
+    sqlEnd = microtime.now()
+    if (perf.qryTimes[taxon.taxonID]){
+      perf.qryTimes[taxon.taxonID] += sqlEnd - sqlStart
     }
     else {
-      
-      taxonUpdateCount.count++
-      
-      var propertyName = null;
-      if (whereField == 'accepted_species_name'){
-        propertyName = 'acceptedSpeciesName'
-      }
-      else {
-        propertyName = whereField
-      }
-      nameUpdates.updateCount++;
-      var higherClass = matchingHigherTaxa[0]
-      update.updateString += 
-        'UPDATE taxon SET kingdom = \'' + higherClass.kingdom + 
-        '\', phylum = \'' + higherClass.phylum + 
-        '\', class = \'' + higherClass.class + 
-        '\', [order] = \'' + higherClass.order + 
-        '\', family = \'' + higherClass.family + 
-        '\', edits = \'Higher taxa copied from taxon ' + matchingHigherTaxa[0].scientificName.replace(/'/g, `''`) + ' using ' + whereField + ' ' + taxon[propertyName] + '\' + CHAR(13)' + //CHAR(13) adds a newline so that each edit can be seen separately.
-        ' output @@ROWCOUNT as affectedrows' //so we can work out how many updates were actually made
+      perf.qryTimes[taxon.taxonID] = sqlEnd - sqlStart
+    }
 
-      //we need to do upldates differently if it's for general to prevent overwriting other updates
-      if (genusSearch){
-        update.updateString += ' WHERE taxonID =  ' + taxon.taxonID + ';'
-      } 
-      else {
-        update.updateString += ' WHERE ' + whereField + ' = \'' + taxon[propertyName] + '\' AND family is null;'
-      } 
+    return matchingHigherTaxa
+
+  }
+
+  async function findHigherTaxa(taxonWithMissingHigherTaxa, checkedTaxa, sqlErrors, perf){
+
+    if(taxonWithMissingHigherTaxa.scientificName == 'Agama armata') {
+      //pause
+    }
+    
+    var searchTaxonName;
+    if (taxonWithMissingHigherTaxa.acceptedSpeciesName){
+      searchTaxonName = taxonWithMissingHigherTaxa.acceptedSpeciesName
+    }
+    else {
+      searchTaxonName = taxonWithMissingHigherTaxa.scientificName
+    }
+
+    var acceptedName = taxonWithMissingHigherTaxa.acceptedSpeciesName
+
+    //do we have it already?
+    if (checkedTaxa[searchTaxonName]) {
+      return checkedTaxa[searchTaxonName]
+    }
+
+    var sql = `SELECT DISTINCT kingdom, phylum, class, [order], family, genus, scientificName FROM taxon
+        WHERE scientificName = '${searchTaxonName}' AND family is not null`
+      
+    var matchingHigherTaxa = await getHigherTaxaFromDB(sql, taxonWithMissingHigherTaxa, sqlErrors, perf)
+    
+    if (matchingHigherTaxa.length == 0) {
+      //if we used the accepted species name try again with the genus
+      var searchGenus = searchTaxonName.split(' ').filter(x => x.length > 0)[0]
+      if (checkedTaxa[searchGenus]) {
+        return checkedTaxa[searchGenus]
+      }
+      sql = `SELECT DISTINCT kingdom, phylum, class, [order], family, genus, scientificName FROM taxon
+      WHERE genus = '${searchGenus}' AND family is not null`
+      matchingHigherTaxa = await getHigherTaxaFromDB(sql, taxonWithMissingHigherTaxa, sqlErrors, perf)
+      if (matchingHigherTaxa.length > 0) {
+        checkedTaxa[searchGenus] = matchingHigherTaxa
+        checkedTaxa[acceptedName] = matchingHigherTaxa
+        return matchingHigherTaxa
+      }
+
+      //store the genus for later
+      var genus1 = searchGenus
+
+      //try with the scientificName
+      searchTaxonName = taxonWithMissingHigherTaxa.scientificName
+      if (checkedTaxa[searchTaxonName]) {
+        return checkedTaxa[searchTaxonName]
+      }
+      sql = `SELECT DISTINCT kingdom, phylum, class, [order], family, genus, scientificName FROM taxon
+      WHERE scientificName = '${searchTaxonName}' AND family is not null`
+      matchingHigherTaxa = await getHigherTaxaFromDB(sql, taxonWithMissingHigherTaxa, sqlErrors, perf)
+      if (matchingHigherTaxa.length > 0) {
+        checkedTaxa[searchTaxonName] = matchingHigherTaxa
+        checkedTaxa[acceptedName] = matchingHigherTaxa
+        return matchingHigherTaxa
+      }
+      
+      searchGenus = searchTaxonName.split(' ').filter(x => x.length > 0)[0]
+      if (checkedTaxa[searchGenus]) {
+        return checkedTaxa[searchGenus]
+      }
+      sql = `SELECT DISTINCT kingdom, phylum, class, [order], family, genus, scientificName FROM taxon
+      WHERE genus = '${searchGenus}' AND family is not null`
+      matchingHigherTaxa = await getHigherTaxaFromDB(sql, taxonWithMissingHigherTaxa, sqlErrors, perf)
+      if (matchingHigherTaxa.length > 0) {
+        checkedTaxa[searchGenus] = matchingHigherTaxa
+        checkedTaxa[acceptedName] = matchingHigherTaxa
+        return matchingHigherTaxa
+      }
+
+      //we got nothing
+      checkedTaxa[acceptedName] = []
+      checkedTaxa[taxonWithMissingHigherTaxa.scientificName] = []
+      checkedTaxa[genus1] = []
+      checkedTaxa[searchGenus] = []
+      return []
+
+    }
+    else {
+      checkedTaxa[searchTaxonName] = matchingHigherTaxa
+      return matchingHigherTaxa
+    }
+    
+  }
+
+  async function updateHigherTaxa(matchingHigherTaxa, taxon, nameErrors, nameUpdates, taxonUpdateCount){
+
+    var uniqueHigherTaxa = matchingHigherTaxa.filter(uniqueHigherTaxaFilter)
+    
+    if (uniqueHigherTaxa.length > 1){
+      addNameError(taxon, nameErrors, 'Multiple higher classifications exist', uniqueHigherTaxa)
+      return
+    }
+    else {
+
+      taxonUpdateCount.count++
+
+      var higherClass = uniqueHigherTaxa[0]
+      var updateString = 
+        `UPDATE taxon SET kingdom = '${higherClass.kingdom}',  
+        phylum = '${higherClass.phylum}', 
+        class = '${higherClass.class}',
+        [order] = '${higherClass.order}', 
+        family = '${higherClass.family}', 
+        edits = 'Higher taxon names copied from taxon ${higherClass.scientificName.replace(/'/g, `''`)}.' + CHAR(13)
+        WHERE taxonID = ${taxon.taxonID};` //char13 is a line break
+
+      //run it
+      try {
+        await zodatsaTaxa.query(updateString, { type: QueryTypes.UPDATE })
+      }
+      catch(err){
+        throw(err)
+      }
+
+      nameUpdates.updateCount++;
+      
     }
   }
 
@@ -196,436 +349,107 @@ module.exports = function(db, dbhost) {
       throw err
     }
 
-    //get the initial set of higher taxa
-    var sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon WHERE TRIM(scientificName) IN (\''
-    var taxonNames = new Set() //so we only have unique
-    taxaWithNoHigherClass.forEach(taxon=>{
-      if (taxon.acceptedSpeciesName) { //some are empty strings
-        taxonNames.add(taxon.acceptedSpeciesName)
+    var allStart = Date.now()
+      
+    var sqlStart, sqlEnd = null
+
+    var checkedTaxa = new Set(); //for keeping track of names we've already processed
+    var checkedGenera = {} //we need to keep track of these so we can reuse them as genus:matchedTaxaArray
+    var taxaProcessed = { count: 0 }
+
+    //our vars
+    var uniqueHigherTaxa, matchingHigherTaxa, searchGenus = null
+
+    var taxonUpdateCount = { count: 0 }
+
+    console.log('Processing taxa with missing higher classifications')
+
+    for (const taxon of taxaWithNoHigherClass) {
+
+      var start = microtime.now()
+
+      taxaProcessed.count++
+
+      var matchingHigherTaxa = await findHigherTaxa(taxon, checkedTaxa, sqlErrors, perf)
+
+      if(matchingHigherTaxa.length > 0) {
+        try {
+          await updateHigherTaxa(matchingHigherTaxa,taxon, nameErrors, nameUpdates, taxonUpdateCount)
+        }
+        catch(err){
+          sqlErrors.push(
+            {
+              taxonID: taxon.taxonID,
+              scientificName: taxon.scientificName,
+              error: 'Error updating higher taxa: ' + err
+            }
+          )
+        }
       }
-    })
 
-    sql += [...taxonNames].join('\',\'')
-    sql += '\') AND family is not null'
+      else {
+        addNameError(taxon,nameErrors, 'No higher taxa found', [])
+      }
+      
 
-    //get the higher taxa
-    console.log('fetching higher taxa')
+      var end = microtime.now()
+      perf.allTimes.push(end-start)
+
+      //for testing only
+      /*
+      if (perf.allTimes.length == 1578) { //its 1579!!!
+        var pause = null;
+        //break
+      }
+      
+      
+      if ([1000, 2000, 5000, 7000, 10000, 12000, 15000].includes(perf.allTimes.length)){
+        var pause = null;
+        //break
+      }
+      */
+      
+    }
+
+    var allEnd = Date.now()
+
+    perf.totalTime = allEnd - allStart
+    console.log('Time to process results: ' + (perf.totalTime/1000).toFixed(2) + 'secs')
+
+    //print the summary of errors
+    var errorSummary = nameErrorsSummary(nameErrors)
+    console.log('ERRORS:' + errorSummary.errorCount)
+    for (var key in errorSummary){
+      if (key != 'errorCount') {
+        console.log(key + ': ' + errorSummary[key])
+      }
+
+    }
+
+    console.log('Total number of taxa processed: ' + taxaProcessed.count)
+    console.log('Taxa used to produce UPDATE statements: ' + taxonUpdateCount.count)
+    console.log('Total number of taxa updated: ' + nameUpdates.updateCount)
+
+    var totalQryTime = 0
+    for (var key in perf.qryTimes) {
+      totalQryTime += perf.qryTimes[key]
+    }
+
+    console.log('Total database query time in processing: ' + (totalQryTime/1000000).toFixed(2) + 'secs')
+
+    console.log('Writing errors to log file')
     try {
-      var higherTaxa = await zodatsaTaxa.query(sql,{ type: QueryTypes.SELECT })
+      err = await appendFile(process.cwd() + '/interfaces/sqlserver/sqlCleaning.log', JSON.stringify(nameErrors) + '\r\n\r\n\r\n')
+      if (err) {
+        throw err
+      }
     }
     catch(err){
-      console.log('Error getting higher taxa')
-      throw (err)
+      console.log('error writing to log file')
+      throw err
     }
-
-    if (higherTaxa && higherTaxa.length && higherTaxa.length > 0) {
-
-      console.log(higherTaxa.length + ' higher taxa successfully fetched')
-
-      var allStart = Date.now()
       
-      var sqlStart, sqlEnd = null
-
-      var update = { updateString: '' } //an object to hold the update string so we can pass it to functions
-      var checkedTaxa = new Set(); //for keeping track of names we've already processed
-      var checkedGenera = {} //we need to keep track of these so we can reuse them as genus:matchedTaxaArray
-      var taxaProcessed = { count: 0 }
-
-      //our vars
-      var uniqueHigherTaxa, matchingHigherTaxa, searchGenus = null
-
-      var taxonUpdateCount = { count: 0 }
-
-      console.log('Processing taxa with missing higher classifications')
-
-      for (const taxon of taxaWithNoHigherClass) {
-
-        var start = microtime.now()
-
-        //find higher taxa using the acceptedSpeciesName
-        if (taxon.acceptedSpeciesName) { 
-
-          if (!checkedTaxa.has(taxon.acceptedSpeciesName)) {
-            matchingHigherTaxa = higherTaxa.filter(itm => {return itm.scientificName == taxon.acceptedSpeciesName.trim() })
-            if (matchingHigherTaxa.length > 0) {
-              createUpdateStatement(matchingHigherTaxa, nameErrors, taxon, 'accepted_species_name', nameUpdates, update, false, taxonUpdateCount)
-              checkedTaxa.add(taxon.acceptedSpeciesName)
-              taxaProcessed.count++
-            }
-            else {
-              //try the accepted name genus with our initial higherTaxa
-              searchGenus = taxon.acceptedSpeciesName.trim().split(' ').filter(x => x.length > 0)[0]
-              if (!checkedTaxa.has(searchGenus)) {
-                matchingHigherTaxa = higherTaxa.filter(itm => {return itm.genus.trim() == searchGenus })
-                if (matchingHigherTaxa.length > 0) {
-                  //we need to filter just those that have unique higher classification
-                  uniqueHigherTaxa = matchingHigherTaxa.filter(uniqueHigherTaxaFilter)
-                  createUpdateStatement(uniqueHigherTaxa, nameErrors, taxon, 'accepted_species_name', nameUpdates, update, true, taxonUpdateCount)
-                  checkedTaxa.add(searchGenus)
-                  checkedGenera[searchGenus] = uniqueHigherTaxa
-                  taxaProcessed.count++
-                }
-                else {
-    
-                  //see if we can find the genus in the database
-                  sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon ' +
-                    'WHERE TRIM(genus) = \'' + searchGenus + '\' AND family is not null'
-
-                  sqlStart = microtime.now()
-                  try {
-                    matchingHigherTaxa = await zodatsaTaxa.query(sql, { type: QueryTypes.SELECT })
-                  }
-                  catch(err){
-                    sqlErrors.push(
-                      {
-                        taxonID: taxon.taxonID,
-                        scientificName: taxon.scientificName,
-                        error: err
-                      }
-                    )
-                    continue;
-                  }
-
-                  sqlEnd = microtime.now()
-                  if (perf.qryTimes[taxon.taxonID]){
-                    perf.qryTimes[taxon.taxonID] += sqlEnd - sqlStart
-                  }
-                  else {
-                    perf.qryTimes[taxon.taxonID] = sqlEnd - sqlStart
-                  }
-                  
-                  if (matchingHigherTaxa.length > 0) {
-                    uniqueHigherTaxa = matchingHigherTaxa.filter(uniqueHigherTaxaFilter)
-                    createUpdateStatement(uniqueHigherTaxa, nameErrors, taxon, 'accepted_species_name', nameUpdates, update, true, taxonUpdateCount)
-                    checkedTaxa.add(searchGenus)
-                    checkedGenera[searchGenus] = uniqueHigherTaxa
-                    taxaProcessed.count++
-                  }
-                  else {
-                    //try the scientificName with the results we have already
-                    if (!checkedTaxa.has(taxon.scientificName)) {
-                      matchingHigherTaxa = higherTaxa.filter(itm => {return itm.scientificName == taxon.scientificName.trim() })
-                      if (matchingHigherTaxa.length > 0) {
-                        createUpdateStatement(matchingHigherTaxa, nameErrors, taxon, 'scientificName', nameUpdates, update, false, taxonUpdateCount)
-                        checkedTaxa.add(taxon.scientificName)
-                        taxaProcessed.count++
-                      }
-                      else {
-
-                        //check in the database
-                        sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon ' +
-                          'WHERE TRIM(scientificName) = \'' + taxon.scientificName.trim() + '\' AND family is not null'
-                        
-                        sqlStart = microtime.now()
-                        try {
-                          matchingHigherTaxa = await zodatsaTaxa.query(sql, { type: QueryTypes.SELECT })
-                        }
-                        catch(err){
-                          sqlErrors.push(
-                            {
-                              taxonID: taxon.taxonID,
-                              scientificName: taxon.scientificName,
-                              error: err
-                            }
-                          )
-                          continue
-                        }
-
-                        sqlEnd = microtime.now()
-                        if (perf.qryTimes[taxon.taxonID]){
-                          perf.qryTimes[taxon.taxonID] += sqlEnd - sqlStart
-                        }
-                        else {
-                          perf.qryTimes[taxon.taxonID] = sqlEnd - sqlStart
-                        }
-                        
-                        if (matchingHigherTaxa.length > 0) {
-                          uniqueHigherTaxa = matchingHigherTaxa.filter(uniqueHigherTaxaFilter)
-                          createUpdateStatement(uniqueHigherTaxa, nameErrors, taxon, 'scientificName', nameUpdates, update, false, taxonUpdateCount)
-                          checkedTaxa.add(searchGenus)
-                          checkedGenera[searchGenus] = uniqueHigherTaxa
-                          taxaProcessed.count++
-                        }
-                        else {
-                          //try the scientificName genus with what we have
-                          searchGenus = taxon.scientificName.trim().split(' ').filter(x => x.length > 0)[0]
-                          if (!checkedTaxa.has(searchGenus)){
-                            matchingHigherTaxa = higherTaxa.filter(itm => {return itm.genus.trim() == searchGenus })
-                            if (matchingHigherTaxa.length > 0) {
-                              //we need to filter just those that have unique higher classification
-                              var uniqueHigherTaxa = matchingHigherTaxa.filter(uniqueHigherTaxaFilter)
-                              createUpdateStatement(uniqueHigherTaxa, nameErrors, taxon, 'scientificName', nameUpdates, update, true, taxonUpdateCount)
-                              checkedTaxa.add(searchGenus)
-                              checkedGenera[searchGenus] = uniqueHigherTaxa
-                              taxaProcessed.count++
-                            }
-                            else {
-                              //check the database using the genus part of the scientificName
-                              sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon ' +
-                                'WHERE TRIM(genus) = \'' + searchGenus + '\' AND family is not null'
-                              
-                              sqlStart = microtime.now()
-                              try {
-                                matchingHigherTaxa = await zodatsaTaxa.query(sql, { type: QueryTypes.SELECT })
-                              }
-                              catch(err){
-                                sqlErrors.push(
-                                  {
-                                    taxonID: taxon.taxonID,
-                                    scientificName: taxon.scientificName,
-                                    error: err
-                                  }
-                                )
-                                continue
-                              }
-
-                              sqlEnd = microtime.now()
-                              if (perf.qryTimes[taxon.taxonID]){
-                                perf.qryTimes[taxon.taxonID] += sqlEnd - sqlStart
-                              }
-                              else {
-                                perf.qryTimes[taxon.taxonID] = sqlEnd - sqlStart
-                              }
-                              
-                              if (matchingHigherTaxa.length > 0) {
-                                uniqueHigherTaxa = matchingHigherTaxa.filter(uniqueHigherTaxaFilter)
-                                createUpdateStatement(uniqueHigherTaxa, nameErrors, taxon, 'scientificName', nameUpdates, update, true, taxonUpdateCount)
-                                checkedTaxa.add(searchGenus)
-                                checkedGenera[searchGenus] = uniqueHigherTaxa
-                                taxaProcessed.count++
-                              }
-                              else {
-                                //we really have nothing
-                                addNameError(taxon, nameErrors, 'No higher taxa found')
-                                taxaProcessed.count++
-                              }                         
-                            }
-                          }
-                          else { //reuse the higher taxon for this genus
-                            matchingHigherTaxa = checkedGenera[searchGenus]
-                            createUpdateStatement(matchingHigherTaxa, nameErrors, taxon, 'accepted_species_name', nameUpdates, update, true, taxonUpdateCount)
-                            taxaProcessed.count++
-                          }                        
-                        }                     
-                      }
-                    }
-                    else {
-                      taxaProcessed.count++
-                    }
-                  }                
-                }
-              }
-              else { //reuse the higher taxon for this genus
-                matchingHigherTaxa = checkedGenera[searchGenus]
-                createUpdateStatement(matchingHigherTaxa, nameErrors, taxon, 'accepted_species_name', nameUpdates, update, true, taxonUpdateCount)
-                taxaProcessed.count++
-              }
-            }
-          }
-          else {
-            taxaProcessed.count++
-          }    
-        }
-        else {
-          //try the scientificName with the results we have already
-          if (!checkedTaxa.has(taxon.scientificName)) {
-            matchingHigherTaxa = higherTaxa.filter(itm => {return itm.scientificName == taxon.scientificName.trim() })
-            if (matchingHigherTaxa.length > 0) {
-              createUpdateStatement(matchingHigherTaxa, nameErrors, taxon, 'scientificName', nameUpdates, update, false, taxonUpdateCount)
-              checkedTaxa.add(taxon.scientificName)
-              taxaProcessed.count++
-            }
-            else {
-
-              //check in the database
-              sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon ' +
-                'WHERE TRIM(scientificName) = \'' + taxon.scientificName.trim() + '\' AND family is not null'
-              
-              sqlStart = microtime.now()
-              try {
-                matchingHigherTaxa = await zodatsaTaxa.query(sql, { type: QueryTypes.SELECT })
-              }
-              catch(err){
-                sqlErrors.push(
-                  {
-                    taxonID: taxon.taxonID,
-                    scientificName: taxon.scientificName,
-                    error: err
-                  }
-                )
-                continue
-              }
-
-              sqlEnd = microtime.now()
-              if (perf.qryTimes[taxon.taxonID]){
-                perf.qryTimes[taxon.taxonID] += sqlEnd - sqlStart
-              }
-              else {
-                perf.qryTimes[taxon.taxonID] = sqlEnd - sqlStart
-              }
-              
-              if (matchingHigherTaxa.length > 0) {
-                uniqueHigherTaxa = matchingHigherTaxa.filter(uniqueHigherTaxaFilter)
-                createUpdateStatement(uniqueHigherTaxa, nameErrors, taxon, 'scientificName', nameUpdates, update, false, taxonUpdateCount)
-                checkedTaxa.add(searchGenus)
-                checkedGenera[searchGenus] = uniqueHigherTaxa
-                taxaProcessed.count++
-              }
-              else {
-                //try the scientificName genus with what we have
-                searchGenus = taxon.scientificName.trim().split(' ').filter(x => x.length > 0)[0]
-                if (!checkedTaxa.has(searchGenus)){
-                  matchingHigherTaxa = higherTaxa.filter(itm => {return itm.genus.trim() == searchGenus })
-                  if (matchingHigherTaxa.length > 0) {
-                    //we need to filter just those that have unique higher classification
-                    uniqueHigherTaxa = matchingHigherTaxa.filter(uniqueHigherTaxaFilter)
-                    createUpdateStatement(uniqueHigherTaxa, nameErrors, taxon, 'genus', nameUpdates, update, true, taxonUpdateCount)
-                    checkedTaxa.add(searchGenus)
-                    checkedGenera[searchGenus] = uniqueHigherTaxa
-                    taxaProcessed.count++
-                  }
-                  else {
-                    //check the database using the genus part of the scientificName
-                    sql = 'SELECT DISTINCT kingdom, phylum, class, [order], family, genus, TRIM(scientificName) as scientificName FROM taxon ' +
-                      'WHERE TRIM(genus) = \'' + searchGenus + '\' AND family is not null'
-                    
-                    sqlStart = microtime.now()
-                    try {
-                      matchingHigherTaxa = await zodatsaTaxa.query(sql, { type: QueryTypes.SELECT })
-                    }
-                    catch(err){
-                      sqlErrors.push(
-                        {
-                          taxonID: taxon.taxonID,
-                          scientificName: taxon.scientificName,
-                          error: err
-                        }
-                      )
-                      continue
-                    }
-
-                    sqlEnd = microtime.now()
-                    if (perf.qryTimes[taxon.taxonID]){
-                      perf.qryTimes[taxon.taxonID] += sqlEnd - sqlStart
-                    }
-                    else {
-                      perf.qryTimes[taxon.taxonID] = sqlEnd - sqlStart
-                    }
-                    
-                    if (matchingHigherTaxa.length > 0) {
-                      uniqueHigherTaxa = matchingHigherTaxa.filter(uniqueHigherTaxaFilter)
-                      createUpdateStatement(uniqueHigherTaxa, nameErrors, taxon, 'genus', nameUpdates, update, true, taxonUpdateCount)
-                      checkedTaxa.add(searchGenus)
-                      checkedGenera[searchGenus] = uniqueHigherTaxa
-                      taxaProcessed.count++
-                    }
-                    else {
-                      //we really have nothing
-                      addNameError(taxon, nameErrors, 'No higher taxa found')
-                      taxaProcessed.count++
-                    }                         
-                  }
-                }
-                else { //reuse the higher taxon for this genus
-                  matchingHigherTaxa = checkedGenera[searchGenus]
-                  createUpdateStatement(matchingHigherTaxa, nameErrors, taxon, 'accepted_species_name', nameUpdates, update, true, taxonUpdateCount)
-                  taxaProcessed.count++
-                }                        
-              }                     
-            }
-          }
-          else {
-            taxaProcessed.count++
-          }
-        }
-
-        var end = microtime.now()
-        perf.allTimes.push(end-start)
-
-        //for testing only
-        /*
-        if (perf.allTimes.length == 1578) { //its 1579!!!
-          var pause = null;
-          //break
-        }
-        
-        
-        if ([1000, 2000, 5000, 7000, 10000, 12000, 15000].includes(perf.allTimes.length)){
-          var pause = null;
-          //break
-        }
-        */
-        
-
-      }
-
-      var allEnd = Date.now()
-
-      perf.totalTime = allEnd - allStart
-      console.log('Time to process results: ' + (perf.totalTime/1000).toFixed(2) + 'secs')
-
-      //print the summary of errors
-      var errorSummary = nameErrorsSummary(nameErrors)
-      console.log('ERRORS:' + errorSummary.errorCount)
-      for (var key in errorSummary){
-        if (key != 'errorCount') {
-          console.log(key + ': ' + errorSummary[key])
-        }
-
-      }
-
-      console.log('Total number of taxa processed: ' + taxaProcessed.count)
-
-      console.log('Taxa used to produce UPDATE statements: ' + taxonUpdateCount.count)
-
-      var totalQryTime = 0
-      for (var key in perf.qryTimes) {
-        totalQryTime += perf.qryTimes[key]
-      }
-
-      console.log('Total database query time in processing: ' + (totalQryTime/1000000).toFixed(2) + 'secs')
-      
-      var updateStart = Date.now()
-      console.log('Updating higher taxa')
-      try {
-        var updateQryResults = await zodatsaTaxa.query(update.updateString)
-      }
-      catch(err){
-        console.log('Error running updates: ')
-        throw err
-      }
-
-      var updateTime = Date.now() - updateStart
-
-      var updateRowCount = 0
-      var rowCountArr = updateQryResults[0]
-      for (var count of rowCountArr){
-        updateRowCount += count.affectedrows
-      }
-
-      console.log('Records updated: ' + updateRowCount)
-
-      console.log('Update time: ' + (updateTime/1000).toFixed(2) + 'secs') 
-
-      console.log('Writing errors to log file')
-      try {
-        err = await appendFile(process.cwd() + '/interfaces/sqlserver/sqlCleaning.log', JSON.stringify(nameErrors) + '\r\n\r\n\r\n')
-        if (err) {
-          throw err
-        }
-      }
-      catch(err){
-        console.log('error writing to log file')
-        throw err
-      }
-        
-      return;
-
-    }
-    else {
-      console.log('no higher taxa returned')
-      return; 
-    }
+    return;
 
   }
 
@@ -818,12 +642,181 @@ module.exports = function(db, dbhost) {
     }
   }
 
+  async function showUniqueChars(field) {
+    console.log('fetching records from DB for unique chars')
+
+    var sql = `SELECT DISTINCT ${field} FROM taxon`
+
+    try{
+      var result = await zodatsaTaxa.query(sql, {type: QueryTypes.SELECT} )
+    }
+    catch(err){
+      throw(err)
+    }
+
+    if (result.length == 0){
+      console.log('Nothing returned from database')
+    }
+    else {
+      console.log(result.length + ' values returned from DB')
+
+      var charcounts = result.map(v => v[field]).join('').split('').reduce((acc, char) => {
+        acc[char] = (acc[char] || 0) + 1;
+        return acc;
+      }, {});
+
+      console.log(Object.keys(charcounts).length + ' unique characters found.')
+
+      console.log('Char\t\tCount')
+
+      for (var char in charcounts){
+        console.log(char + '\t\t' + charcounts[char])
+      }
+
+    }
+
+  }
+
+  async function replaceSpecialChars(field, table){
+    console.log('starting special character replacement')
+    var targets = ['[',']','╔. ','╓','÷','Ω','≤','σ','π','Σ','±','‑','–','α','|','µ','Φ','Θ']
+    var replacements = ['','','','Ö','ö','ê','ó','å','ã','ä','ñ','-','-','à','','æ','è','é']
+
+    var updateCount = 0
+
+    for (var i = 0; i < targets.length; i++){
+      var updatesql = `Update ${table} 
+        set ${field} = replace(${field}, N'${targets[i]}', N'${replacements[i]}') 
+        output @@rowcount as count 
+        where ${field} like N'%${targets[i]}%'`
+
+      try{
+        var result = await zodatsaTaxa.query(updatesql, {type: QueryTypes.UPDATE})
+      }
+      catch(err){
+        throw(err)
+      }
+
+      updateCount += result[1].rows.length
+      
+    }
+
+    console.log(updateCount + ' records with special characters updated')
+
+  }
+
+  async function replaceSuperscript(superscriptChar, replaceChar, field, table) {
+    
+    console.log('starting replace superscript '  + superscriptChar)
+    
+    var getSuperScript = require('./superscript.js')
+
+    var superChar = getSuperScript(superscriptChar)
+
+    var sql = `UPDATE ${table} 
+      SET ${field} = replace(${field}, N'${superChar}' COLLATE SQL_Latin1_General_CP1_CS_AS, '${replaceChar}')
+      OUTPUT @@rowcount as count 
+      WHERE ${field} like N'%${superChar}%' COLLATE SQL_Latin1_General_CP1_CS_AS;`
+
+    try{
+      var result = await zodatsaTaxa.query(sql, {type: QueryTypes.UPDATE})
+    }
+    catch(err){
+      throw(err)
+    }
+
+    updateCount = result[1].rows.length
+
+    console.log(`${updateCount} rows updated in ${field}`)
+
+  }
+
+  async function removeDuplicates(){
+
+    console.log('starting delete duplicates')
+    
+    var duplicatesSql = `select scientificName, Authorship, accepted_species_name, accepted_species_author, count(*) as count from taxon
+      group by scientificName, Authorship, accepted_species_name, accepted_species_author
+      Having count(*) > 1`
+    
+    try{
+      var duplicates = await zodatsaTaxa.query(duplicatesSql, { type: QueryTypes.SELECT })
+    }
+    catch(err){
+      throw(err)
+    }
+
+    var duplicateRecordsCount = duplicates.reduce((total, obj) => total + obj.count, 0)
+
+    console.log(duplicates.length + ' duplicated names found for ' + duplicateRecordsCount + ' records')
+
+    var deleteCount = 0
+
+    for (const duplicate of duplicates){
+      var sql = `SELECT * from taxon WHERE scientificName = '${duplicate.scientificName}' `
+      
+      if (duplicate.Authorship){
+        sql += `AND authorship = '${duplicate.Authorship}' `
+      }
+      else {
+        sql += `AND authorship IS NULL `
+      }
+      
+      if (duplicate.accepted_species_name){
+        sql += `AND accepted_species_name = '${duplicate.accepted_species_name}' `
+      }
+      else {
+        sql += `AND accepted_species_name IS NULL `
+      }
+
+      if (duplicate.accepted_species_author){
+        sql += `AND accepted_species_author = '${duplicate.accepted_species_author}';`
+      }
+      else {
+        sql += `AND accepted_species_author IS NULL;`
+      }
+
+      try {
+        var records = await zodatsaTaxa.query(sql, { type: QueryTypes.SELECT })
+      }
+      catch(err) {
+        throw(err)
+      }
+  
+      var deleteIDs = records.map(r => r.taxonID)
+      deleteIDs.shift() //remove the first so we keep one
+      if(deleteIDs.length == 0){
+        var i = 1
+      }
+
+      var deleteSql = `DELETE FROM taxon OUTPUT @@ROWCOUNT as count WHERE taxonID IN (${deleteIDs})`
+
+      try {
+        var rowCount = await zodatsaTaxa.query(deleteSql)
+      }
+      catch(err){
+        throw(err)
+      }
+
+      deleteCount += rowCount[0][0].count
+
+    }
+
+    console.log(deleteCount + ' records deleted')
+    
+  }
+
   return {
 
     addMissingHigherTaxa: addMissingHigherTaxa,
     removeSingleQuotes: removeSingleQuotes,
     makeTitleCase: makeTitleCase,
-    trimStrings: trimStrings
+    trimStrings: trimStrings, 
+    removeDuplicates: removeDuplicates,
+    showUniqueChars: showUniqueChars,
+    replaceSpecialChars: replaceSpecialChars,
+    replaceSuperscript: replaceSuperscript,
+    readMissingTaxaLog: readMissingTaxaLog
 
   }
 

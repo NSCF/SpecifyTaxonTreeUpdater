@@ -2,12 +2,12 @@
 
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('commonName', {
-    taxonId: {
+    taxonID: {
       type: DataTypes.INTEGER,
       allowNull: false,
       field: 'taxonID'
     },
-    commonNameElementId: {
+    commonNameElementID: {
       type: DataTypes.INTEGER,
       allowNull: true,
       field: 'common_name_element_id'
@@ -17,12 +17,12 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true,
       field: 'name'
     },
-    languageIso: {
+    languageISO: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'language_iso'
     }
   }, {
-    tableName: 'common_names'
+    tableName: 'common_name'
   });
 };
