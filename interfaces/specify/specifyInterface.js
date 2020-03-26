@@ -1,6 +1,6 @@
 module.exports = function(db, dbhost, user, pwd) {
 
-  const specify = require(process.cwd() + '/dbconn/specifyconn')(db, dbhost, user, pwd); //a sequlizer instance
+  const specify = require(process.cwd() + '/dbconn/specifyconn')(db, dbhost, user, pwd); //a Sequelizer instance
 
   var {Op, QueryTypes} = require('sequelize')
 

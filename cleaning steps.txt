@@ -13,5 +13,6 @@ Data cleaning steps
 - replaced \N with null for references  (ca. 2800 records)
 - replaced countries and SADistribution with 'SA Country (Nation)' with South Africa, ca. 1000 records
 - moved references to new table, as unique records
-- removed duplicates from taxon_references 
+- removed duplicates from taxon_references (ca 70 000)
+- fixed language code 'enc' to 'eng', ca 2700. The language codes are a mess, all kinds of things in there including parts of common names.
 
